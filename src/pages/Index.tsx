@@ -1,14 +1,46 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { FileText, Sparkles, CheckCircle, Check, ArrowRight, Zap, Shield, Globe, Send } from "lucide-react";
 
+
+declare global {
+  interface Window {
+    dataLayer: Record<string, unknown>[];
+  }
+}
+
 const Index = () => {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Track if we already sent the "start" event
+  const hasStartedForm = useRef(false);
+
+  // --- Event for Choosing a Plan ---
+  const handleChoosePlan = (planName: string) => {
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: "choose_plan",
+      plan_name: planName,
+    });
+    scrollTo("cta");
+  };
+
+  // --- Event for Starting Form ---
+  const handleFormFocus = () => {
+    if (!hasStartedForm.current) {
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({
+        event: "form_start",
+        form_id: "waitlist_bottom"
+      });
+      hasStartedForm.current = true;
+    }
+  };
 
   const handleWaitlist = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +62,13 @@ const Index = () => {
       const result = await response.json();
 
       if (response.ok && result.success) {
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({
+          event: "lead",
+          form_location: "bottom_cta",
+          conversion_type: "waitlist_signup"
+        });
+
         setSubmitted(true);
         setEmail("");
         toast({
@@ -185,7 +224,13 @@ const Index = () => {
                   </ul>
                 </CardContent>
                 <CardFooter className="pb-8">
-                  <Button onClick={() => scrollTo("cta")} variant={plan.popular ? "default" : "outline"} className="w-full rounded-full h-11">Wybierz {plan.name}</Button>
+                  <Button
+                      onClick={() => handleChoosePlan(plan.name)}
+                      variant={plan.popular ? "default" : "outline"}
+                      className="w-full rounded-full h-11"
+                  >
+                    Wybierz {plan.name}
+                  </Button>
                 </CardFooter>
               </Card>
             ))}
@@ -210,6 +255,7 @@ const Index = () => {
                   type="email"
                   placeholder="Wpisz swój email..."
                   value={email}
+                  onFocus={handleFormFocus}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   className="h-14 rounded-full border-none bg-white px-6 text-base text-black placeholder:text-muted-foreground focus-visible:ring-0"
